@@ -3,7 +3,7 @@
 
 using System;
 
-namespace Softeq.CloudStorage.Extension
+namespace Softeq.CloudStorage.Extension.Exceptions
 {
     public class BlobNotFoundException : ContentStorageException
     {

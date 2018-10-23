@@ -5,14 +5,14 @@ using System;
 
 namespace Softeq.CloudStorage.Extension.Exceptions
 {
-    public class ContentStorageException : Exception
+    public class CloudStorageValidationException : Exception
     {
-        public ContentStorageException(string message)
+        public CloudStorageValidationException(string message) 
             : base(message)
         {
         }
 
-        public ContentStorageException(string message, Exception innerException)
+        public CloudStorageValidationException(string message, Exception innerException) 
             : base(message, innerException)
         {
         }

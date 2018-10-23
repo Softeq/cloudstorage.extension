@@ -8,55 +8,78 @@ namespace Softeq.CloudStorage.Extension
 {
     public interface IContentStorage
     {
-        Task<string> SaveContentAsync(string fileName, Stream content, string container, string contentType = null);
         /// <summary>
-        /// Delete content
+        /// Saves content to blob asynchronously
         /// </summary>
+        /// <param name="fileName">Source file name</param>
+        /// <param name="content">Content stream</param>
+        /// <param name="containerName">Destination container name</param>
+        /// <param name="contentType">Stream content type</param>
+        /// <returns>
+        /// Blob local path
+        /// </returns>
+        Task<string> SaveContentAsync(string fileName, Stream content, string containerName, string contentType = null);
+
+        /// <summary>
+        /// Deletes blob from container asynchronously
+        /// </summary>
+        /// <param name="fileName">File name to delete</param>
+        /// <param name="containerName">File container name</param>
         /// <returns>
         /// Throws ContentStorageException
         /// </returns>
-        Task DeleteContentAsync(string fileName, string container);
+        Task DeleteContentAsync(string fileName, string containerName);
 
         /// <summary>
-        /// Get content
+        /// Gets blob content from container asynchronously
         /// </summary>
+        /// <param name="fileName">Source file name</param>
+        /// <param name="containerName">File container name</param>
+        /// <returns>
+        /// Blob bytes array
+        /// </returns>
+        Task<byte[]> GetContetAsync(string fileName, string containerName);
+
+        /// <summary>
+        /// Checks if blob exists asynchronously
+        /// </summary>
+        /// <param name="fileName">Destination file name</param>
+        /// <param name="containerName">Destination file container name</param>
         /// <returns>
         /// Throws ContentStorageException
         /// </returns>
-        Task<byte[]> GetContetAsync(string fileName, string container);
+        Task<bool> BlobExistsAsync(string fileName, string containerName);
 
         /// <summary>
-        /// Check contents exists
+        /// Сopies blob from one container to another asynchronously
         /// </summary>
+        /// <param name="fileName">Source file name</param>
+        /// <param name="sourceContainerName">Source file container name</param>
+        /// <param name="targetContainerName">Destination file container name</param>
         /// <returns>
-        /// Throws ContentStorageException
+        /// Target blob original Uri
         /// </returns>
-        Task<bool> ContentExistsAsync(string fileName, string container);
+        Task<string> CopyBlobAsync(string fileName, string sourceContainerName, string targetContainerName);
 
         /// <summary>
-        /// Copy blob from one source container to target container
+        /// Gets container Sas token asynchronously
         /// </summary>
-        /// <param name="fileName">blob name</param>
-        /// <param name="sourceContainer">source container name</param>
-        /// <param name="targetContainer">target container name</param>
-        /// <returns></returns>
-        Task<string> CopyBlobAsync(string fileName, string sourceContainer, string targetContainer);
+        /// <param name="containerName">Target container name</param>
+        /// <param name="expiryTimeInMinutes">Token expiration time in minutes</param>
+        /// <returns>
+        /// Container Sas token
+        /// </returns>
+        Task<string> GetContainerSasTokenAsync(string containerName, int expiryTimeInMinutes);
 
         /// <summary>
-        /// Get Sas token for whole container with expiration time
+        /// Gets blob Sas token asynchronously
         /// </summary>
-        /// <param name="container"></param>
-        /// <param name="expiryTimeInMinutes"></param>
-        /// <returns></returns>
-        Task<string> GetContainerSasTokenAsync(string container, int expiryTimeInMinutes);
-        
-        /// <summary>
-        /// Get Sas token for specific blob from the container with expiration time
-        /// </summary>
-        /// <param name="container"></param>
-        /// <param name="fileName"></param>
-        /// <param name="expiryTimeInMinutes"></param>
-        /// <returns></returns>
-        Task<string> GetBlobSasUriAsync(string container, string fileName, int expiryTimeInMinutes);
+        /// <param name="containerName">Target file container name</param>
+        /// <param name="fileName">Target file name</param>
+        /// <param name="expiryTimeInMinutes">Token expiration time in minutes</param>
+        /// <returns>
+        /// Blob Sas token
+        /// </returns>
+        Task<string> GetBlobSasUriAsync(string containerName, string fileName, int expiryTimeInMinutes);
     }
 }

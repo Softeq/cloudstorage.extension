@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 using Microsoft.WindowsAzure.Storage;
 using Microsoft.WindowsAzure.Storage.Blob;
 using Microsoft.WindowsAzure.Storage.DataMovement;
-using Softeq.CloudStorage.Extension;
+using Softeq.CloudStorage.Extension.Exceptions;
 
 namespace Softeq.CloudStorage.Extension
 {
@@ -26,15 +26,15 @@ namespace Softeq.CloudStorage.Extension
             _blobClient = _storageAccount.CreateCloudBlobClient();
         }
 
-        public async Task<string> SaveContentAsync(string fileName, Stream content, string container, string contentType = null)
+        public async Task<string> SaveContentAsync(string fileName, Stream content, string containerName, string contentType = null)
         {
-            return await SaveContentAsync(content, fileName, container, contentType);
+            return await SaveContentAsync(content, fileName, containerName, contentType);
         }
 
         public async Task DeleteContentAsync(string fileName, string containerName)
         {
             var container = await GetOrCreateContainerAsync(containerName);
-            CloudBlockBlob blockBlob = container.GetBlockBlobReference(fileName);
+            var blockBlob = container.GetBlockBlobReference(fileName);
             if (!await blockBlob.ExistsAsync())
             {
                 throw new BlobNotFoundException($"Blob doesn't exist. FileName={fileName}, Container={containerName}");
@@ -47,15 +47,15 @@ namespace Softeq.CloudStorage.Extension
             var container = await GetOrCreateContainerAsync(containerName);
             var blob = await container.GetBlobReferenceFromServerAsync(fileName);
 
-            using (var memStream = new MemoryStream())
+            using (var memoryStream = new MemoryStream())
             {
-                await blob.DownloadToStreamAsync(memStream);
+                await blob.DownloadToStreamAsync(memoryStream);
 
-                return memStream.ToArray();
+                return memoryStream.ToArray();
             }
         }
 
-        public async Task<bool> ContentExistsAsync(string fileName, string containerName)
+        public async Task<bool> BlobExistsAsync(string fileName, string containerName)
         {
             var container = await GetOrCreateContainerAsync(containerName);
             return await container.GetBlockBlobReference(fileName).ExistsAsync();
@@ -67,27 +67,28 @@ namespace Softeq.CloudStorage.Extension
             var targetContainer = await GetOrCreateContainerAsync(targetContainerName);
             var sourceBlob = sourceContainer.GetBlockBlobReference(fileName);
             var targetBlob = targetContainer.GetBlockBlobReference(fileName);
+            var isSourceBlobExists = await sourceBlob.ExistsAsync();
 
-            if (!await sourceBlob.ExistsAsync())
+            if (!isSourceBlobExists)
             {
-                throw new BlobNotFoundException($"Blob doesn't exist. FileName={fileName}, Container={sourceContainerName}");
+                throw new BlobNotFoundException($"Source blob doesn't found. FileName={fileName}, Container={sourceContainerName}");
             }
 
             var context = new SingleTransferContext
             {
                 ShouldOverwriteCallbackAsync = (source, destination) => Task.FromResult(true)
             };
-            var cancellationSource = new CancellationTokenSource();
 
-            await TransferManager.CopyAsync(sourceBlob, targetBlob, true,  null, context, cancellationSource.Token);
+            var cancellationSource = new CancellationTokenSource();
+            await TransferManager.CopyAsync(sourceBlob, targetBlob, true, null, context, cancellationSource.Token);
 
             return targetBlob.Uri.OriginalString;
         }
 
-        public async Task<string> SaveContentAsync(Stream content, string fileName , string containerName, string contentType)
+        public async Task<string> SaveContentAsync(Stream content, string fileName, string containerName, string contentType)
         {
             var container = await GetOrCreateContainerAsync(containerName);
-            CloudBlockBlob blockBlob = container.GetBlockBlobReference(fileName);
+            var blockBlob = container.GetBlockBlobReference(fileName);
 
             if (!string.IsNullOrEmpty(contentType))
             {
@@ -102,46 +103,58 @@ namespace Softeq.CloudStorage.Extension
         public async Task<string> GetContainerSasTokenAsync(string containerName, int expiryTimeInMinutes)
         {
             var container = await GetOrCreateContainerAsync(containerName);
-            // Create a new shared access policy and define its constraints.
-            // The access policy provides create, write, read, list, and delete permissions.
-            SharedAccessBlobPolicy sharedPolicy = new SharedAccessBlobPolicy()
-            {
-                // When the start time for the SAS is omitted, the start time is assumed to be the time when the storage service receives the request.
-                // Omitting the start time for a SAS that is effective immediately helps to avoid clock skew.
-                SharedAccessExpiryTime = DateTime.UtcNow.AddHours(expiryTimeInMinutes),
-                Permissions = SharedAccessBlobPermissions.Write
-            };
 
-            return container.GetSharedAccessSignature(sharedPolicy);
+            var sharedPolicy = GetSharedAccessBlobPolicy(DateTime.UtcNow.AddHours(expiryTimeInMinutes), SharedAccessBlobPermissions.Write);
+            var sasContainerToken = container.GetSharedAccessSignature(sharedPolicy);
+
+            return sasContainerToken;
         }
 
         public async Task<string> GetBlobSasUriAsync(string containerName, string fileName, int expiryTimeInMinutes)
         {
-            var container = await GetOrCreateContainerAsync(containerName);
-            CloudBlockBlob blob = container.GetBlockBlobReference(fileName);
-
-            // Create a new shared access policy and define its constraints.
-            // The access policy provides create, write, read, list, and delete permissions.
-            SharedAccessBlobPolicy sharedPolicy = new SharedAccessBlobPolicy
+            if (string.IsNullOrEmpty(fileName) || string.IsNullOrEmpty(containerName))
             {
-                // When the start time for the SAS is omitted, the start time is assumed to be the time when the storage service receives the request.
-                // Omitting the start time for a SAS that is effective immediately helps to avoid clock skew.
-                SharedAccessExpiryTime = DateTime.UtcNow.AddMinutes(expiryTimeInMinutes),
-                Permissions = SharedAccessBlobPermissions.Read
-            };
+                throw new CloudStorageValidationException("Invalid incoming parameters");
+            }
 
+            var container = await GetOrCreateContainerAsync(containerName);
+            var blob = container.GetBlockBlobReference(fileName);
+
+            var sharedPolicy = GetSharedAccessBlobPolicy(DateTime.UtcNow.AddMinutes(expiryTimeInMinutes), SharedAccessBlobPermissions.Read);
             var sasBlobToken = blob.GetSharedAccessSignature(sharedPolicy);
 
             return $"{blob.Uri}{sasBlobToken}";
         }
-        
+
         private async Task<CloudBlobContainer> GetOrCreateContainerAsync(string containerName)
         {
-            containerName = Regex.Replace(containerName, "[^0-9a-z]+", "");
+            const string replacementPattern = "[^0-9a-z]+";
+            containerName = Regex.Replace(containerName, replacementPattern, string.Empty);
             var container = _blobClient.GetContainerReference(containerName);
             await container.CreateIfNotExistsAsync();
-            await container.SetPermissionsAsync(new BlobContainerPermissions { PublicAccess = BlobContainerPublicAccessType.Container });
+
+            var permissions = new BlobContainerPermissions
+            {
+                PublicAccess = BlobContainerPublicAccessType.Container
+            };
+            await container.SetPermissionsAsync(permissions);
+
             return container;
+        }
+
+        private SharedAccessBlobPolicy GetSharedAccessBlobPolicy(DateTimeOffset expirationTime, SharedAccessBlobPermissions blobPermissions)
+        {
+            // Create a new shared access policy and define its constraints.
+            // The access policy provides create, write, read, list, and delete permissions.
+            var sharedPolicy = new SharedAccessBlobPolicy
+            {
+                // When the start time for the SAS is omitted, the start time is assumed to be the time when the storage service receives the request.
+                // Omitting the start time for a SAS that is effective immediately helps to avoid clock skew.
+                SharedAccessExpiryTime = expirationTime,
+                Permissions = blobPermissions
+            };
+
+            return sharedPolicy;
         }
     }
 }
