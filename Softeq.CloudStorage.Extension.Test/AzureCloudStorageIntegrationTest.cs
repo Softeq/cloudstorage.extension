@@ -21,8 +21,10 @@ namespace Softeq.CloudStorage.Extension.Test
         [Fact]
         public async Task ShouldGetBlobUrlAsync()
         {
-            Uri url = await SavedContentAsync(_fileName);
-            url.Should().NotBe(null);
+            Uri savedUrl = await SavedContentAsync(_fileName);
+            var url = await _contentStorage.GetBlobUrlAsync(_fileName, _containerName);
+            
+            url.Should().BeEquivalentTo(savedUrl);
         }
         
         [Fact]
