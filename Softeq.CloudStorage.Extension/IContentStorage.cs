@@ -1,6 +1,7 @@
 ﻿// Developed by Softeq Development Corporation
 // http://www.softeq.com
 
+using System;
 using System.IO;
 using System.Threading.Tasks;
 
@@ -18,7 +19,7 @@ namespace Softeq.CloudStorage.Extension
         /// <returns>
         /// Blob local path
         /// </returns>
-        Task<string> SaveContentAsync(string fileName, Stream content, string containerName, string contentType = null);
+        Task<Uri> SaveContentAsync(string fileName, Stream content, string containerName, string contentType = null);
 
         /// <summary>
         /// Deletes blob from container asynchronously
@@ -38,8 +39,18 @@ namespace Softeq.CloudStorage.Extension
         /// <returns>
         /// Blob bytes array
         /// </returns>
-        Task<byte[]> GetContetAsync(string fileName, string containerName);
+        Task<byte[]> GetContentAsync(string fileName, string containerName);
 
+        /// <summary>
+        /// Gets blob URL from container asynchronously
+        /// </summary>
+        /// <param name="fileName">Source file name</param>
+        /// <param name="containerName">File container name</param>
+        /// <returns>
+        /// Blob uri
+        /// </returns>
+        Task<Uri> GetBlobUrlAsync(string fileName, string containerName);
+        
         /// <summary>
         /// Checks if blob exists asynchronously
         /// </summary>
@@ -59,7 +70,7 @@ namespace Softeq.CloudStorage.Extension
         /// <returns>
         /// Target blob original Uri
         /// </returns>
-        Task<string> CopyBlobAsync(string fileName, string sourceContainerName, string targetContainerName);
+        Task<Uri> CopyBlobAsync(string fileName, string sourceContainerName, string targetContainerName);
 
         /// <summary>
         /// Gets container Sas token asynchronously

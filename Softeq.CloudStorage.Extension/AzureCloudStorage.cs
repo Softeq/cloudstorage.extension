@@ -18,15 +18,13 @@ namespace Softeq.CloudStorage.Extension
         private readonly CloudStorageAccount _storageAccount;
         private readonly CloudBlobClient _blobClient;
 
-        public AzureCloudStorage() { }
-
         public AzureCloudStorage(string azureConStringName)
         {
             _storageAccount = CloudStorageAccount.Parse(azureConStringName);
             _blobClient = _storageAccount.CreateCloudBlobClient();
         }
 
-        public async Task<string> SaveContentAsync(string fileName, Stream content, string containerName, string contentType = null)
+        public async Task<Uri> SaveContentAsync(string fileName, Stream content, string containerName, string contentType = null)
         {
             return await SaveContentAsync(content, fileName, containerName, contentType);
         }
@@ -42,7 +40,7 @@ namespace Softeq.CloudStorage.Extension
             await blockBlob.DeleteAsync();
         }
 
-        public async Task<byte[]> GetContetAsync(string fileName, string containerName)
+        public async Task<byte[]> GetContentAsync(string fileName, string containerName)
         {
             var container = await GetOrCreateContainerAsync(containerName);
             var blob = await container.GetBlobReferenceFromServerAsync(fileName);
@@ -54,6 +52,13 @@ namespace Softeq.CloudStorage.Extension
                 return memoryStream.ToArray();
             }
         }
+        
+        public async Task<Uri> GetBlobUrlAsync(string fileName, string containerName)
+        {
+            var container = await GetOrCreateContainerAsync(containerName);
+            var blob = await container.GetBlobReferenceFromServerAsync(fileName);
+            return blob.Uri;
+        }
 
         public async Task<bool> BlobExistsAsync(string fileName, string containerName)
         {
@@ -61,7 +66,7 @@ namespace Softeq.CloudStorage.Extension
             return await container.GetBlockBlobReference(fileName).ExistsAsync();
         }
 
-        public async Task<string> CopyBlobAsync(string fileName, string sourceContainerName, string targetContainerName)
+        public async Task<Uri> CopyBlobAsync(string fileName, string sourceContainerName, string targetContainerName)
         {
             var sourceContainer = await GetOrCreateContainerAsync(sourceContainerName);
             var targetContainer = await GetOrCreateContainerAsync(targetContainerName);
@@ -82,10 +87,10 @@ namespace Softeq.CloudStorage.Extension
             var cancellationSource = new CancellationTokenSource();
             await TransferManager.CopyAsync(sourceBlob, targetBlob, true, null, context, cancellationSource.Token);
 
-            return targetBlob.Uri.OriginalString;
+            return targetBlob.Uri;
         }
 
-        public async Task<string> SaveContentAsync(Stream content, string fileName, string containerName, string contentType)
+        public async Task<Uri> SaveContentAsync(Stream content, string fileName, string containerName, string contentType)
         {
             var container = await GetOrCreateContainerAsync(containerName);
             var blockBlob = container.GetBlockBlobReference(fileName);
@@ -95,9 +100,8 @@ namespace Softeq.CloudStorage.Extension
                 blockBlob.Properties.ContentType = contentType;
             }
 
-            // Create or overwrite the "myblob" blob with contents from a local file.
             await blockBlob.UploadFromStreamAsync(content);
-            return blockBlob.Uri.LocalPath;
+            return blockBlob.Uri;
         }
 
         public async Task<string> GetContainerSasTokenAsync(string containerName, int expiryTimeInMinutes)
