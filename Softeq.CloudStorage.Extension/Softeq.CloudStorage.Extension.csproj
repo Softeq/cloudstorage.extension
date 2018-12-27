@@ -13,6 +13,7 @@
     <Product>Softeq.CloudStorage.Extension</Product>
     <PackageProjectUrl>https://github.com/Softeq/cloudstorage.extension</PackageProjectUrl>
     <PackageLicenseUrl>https://github.com/Softeq/cloudstorage.extension/blob/master/LICENSE</PackageLicenseUrl>
+    <PackageVersion>1.0.1</PackageVersion>
   </PropertyGroup>
 
   <ItemGroup>
